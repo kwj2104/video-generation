@@ -19,10 +19,16 @@ train_path = data_path + "/train"
 val_path = data_path + "/val"
 output_path = data_path + "/output" # path for pix2pix output
 gen_path = data_path + "/gen" # path for all generated pics
-os.mkdir(train_path)
-os.mkdir(val_path)
-os.mkdir(output_path)
-os.mkdir(gen_path)
+if not os.path.isdir(data_path):
+    os.mkdir(data_path)
+if not os.path.isdir(train_path):
+    os.mkdir(train_path)
+if not os.path.isdir(val_path):
+    os.mkdir(val_path)
+if not os.path.isdir(output_path):
+    os.mkdir(output_path)
+if not os.path.isdir(gen_path):
+    os.mkdir(gen_path)
 
 # Read the video from specified path 
 cam = cv2.VideoCapture(args.video) 
