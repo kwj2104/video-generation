@@ -75,7 +75,7 @@ cv2.destroyAllWindows()
 train_size = int(framecount * args.train_ratio)
 val_size = framecount - train_size
 for frameid in range(framecount):
-    filepath = '{}/frame{}.jpg'.format(data_path, framecount)
+    filepath = '{}/frame{}.jpg'.format(data_path, frameid)
     if frameid < train_size:
         os.rename(filepath, "{}/{}.jpg".format(train_path, frameid))
     else:
