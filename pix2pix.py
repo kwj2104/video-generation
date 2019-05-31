@@ -15,7 +15,7 @@ import time
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input_dir", help="path to folder containing images")
-parser.add_argument("--mode", required=True, choices=["train", "test", "export"])
+parser.add_argument("--mode", required=True, choices=["train", "test", "export", "gen"])
 parser.add_argument("--output_dir", required=True, help="where to put output files")
 parser.add_argument("--seed", type=int)
 parser.add_argument("--checkpoint", default=None, help="directory with checkpoint to resume training from or use for testing")
@@ -274,10 +274,15 @@ def load_examples():
             a_images = tf.expand_dims(L_chan, axis=2)
             b_images = tf.stack([a_chan, b_chan], axis=2)
         else:
-            # break apart image pair and move to range [-1, 1]
-            width = tf.shape(raw_input)[1] # [height, width, channels]
-            a_images = preprocess(raw_input[:,:width//2,:])
-            b_images = preprocess(raw_input[:,width//2:,:])
+            if a.mode == "gen":
+                width = tf.shape(raw_input)[1] # [height, width, channels]
+                a_images = preprocess(raw_input)
+                b_images = preprocess(raw_input)
+            else:
+                # break apart image pair and move to range [-1, 1]
+                width = tf.shape(raw_input)[1] # [height, width, channels]
+                a_images = preprocess(raw_input[:,:width//2,:])
+                b_images = preprocess(raw_input[:,width//2:,:])
 
     if a.which_direction == "AtoB":
         inputs, targets = [a_images, b_images]
@@ -487,7 +492,10 @@ def create_model(inputs, targets):
 
 
 def save_images(fetches, step=None):
-    image_dir = os.path.join(a.output_dir, "images")
+    if a.mode == "gen":
+        image_dir = a.output_dir
+    else:
+        image_dir = os.path.join(a.output_dir, "images")
     if not os.path.exists(image_dir):
         os.makedirs(image_dir)
 
@@ -495,10 +503,17 @@ def save_images(fetches, step=None):
     for i, in_path in enumerate(fetches["paths"]):
         name, _ = os.path.splitext(os.path.basename(in_path.decode("utf8")))
         fileset = {"name": name, "step": step}
-        for kind in ["inputs", "outputs", "targets"]:
-            filename = name + "-" + kind + ".png"
-            if step is not None:
-                filename = "%08d-%s" % (step, filename)
+        if a.mode == "gen":
+            kindlist = ["outputs"]
+        else:
+            kindlist = ["inputs", "outputs", "targets"]
+        for kind in kindlist:
+            if a.mode == "gen":
+                filename = kind + ".jpg"
+            else:
+                filename = name + "-" + kind + ".jpg"
+                if step is not None:
+                    filename = "%08d-%s" % (step, filename)
             fileset[kind] = filename
             out_path = os.path.join(image_dir, filename)
             contents = fetches[kind][i]
@@ -544,7 +559,7 @@ def main():
     if not os.path.exists(a.output_dir):
         os.makedirs(a.output_dir)
 
-    if a.mode == "test" or a.mode == "export":
+    if a.mode == "test" or a.mode == "export" or a.mode == "gen":
         if a.checkpoint is None:
             raise Exception("checkpoint required for test mode")
 
@@ -723,7 +738,7 @@ def main():
         if a.max_steps is not None:
             max_steps = a.max_steps
 
-        if a.mode == "test":
+        if a.mode == "test" or a.mode == "gen":
             # testing
             # at most, process the test data once
             start = time.time()
@@ -733,8 +748,10 @@ def main():
                 filesets = save_images(results)
                 for i, f in enumerate(filesets):
                     print("evaluated image", f["name"])
-                index_path = append_index(filesets)
-            print("wrote index at", index_path)
+                if a.mode == "test":
+                    index_path = append_index(filesets)
+            if a.mode == "test":
+                print("wrote index at", index_path)
             print("rate", (time.time() - start) / max_steps)
         else:
             # training
